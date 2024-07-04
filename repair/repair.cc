@@ -1957,6 +1957,7 @@ future<> repair_service::removenode_with_repair(locator::token_metadata_ptr tmpt
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 future<> repair_service::do_rebuild_replace_with_repair(locator::token_metadata_ptr tmptr, sstring op, sstring source_dc, streaming::stream_reason reason, std::unordered_set<gms::inet_address> ignore_nodes) {
     assert(this_shard_id() == 0);
 =======
@@ -1966,11 +1967,13 @@ future<> repair_service::do_rebuild_replace_with_repair(locator::token_metadata_
     return seastar::async([this, tmptr = std::move(tmptr), source_dc = std::move(source_dc), op = std::move(op), reason, ignore_nodes = std::move(ignore_nodes)] () mutable {
 =======
 future<> repair_service::do_rebuild_replace_with_repair(std::unordered_map<sstring, locator::vnode_effective_replication_map_ptr> ks_erms, locator::token_metadata_ptr tmptr, sstring op, utils::optional_param source_dc, streaming::stream_reason reason, std::unordered_set<gms::inet_address> ignore_nodes) {
+=======
+future<> repair_service::do_rebuild_replace_with_repair(std::unordered_map<sstring, locator::vnode_effective_replication_map_ptr> ks_erms, locator::token_metadata_ptr tmptr, sstring op, utils::optional_param source_dc, streaming::stream_reason reason, std::unordered_set<locator::host_id> ignore_nodes) {
+>>>>>>> 9729dd21c3 (repair: replace_with_repair: pass ignore_nodes as a set of host_id:s)
     SCYLLA_ASSERT(this_shard_id() == 0);
     return seastar::async([this, ks_erms = std::move(ks_erms), tmptr = std::move(tmptr), source_dc = std::move(source_dc), op = std::move(op), reason, ignore_nodes = std::move(ignore_nodes)] () mutable {
 >>>>>>> b5d0ab092c (repair: replace_rebuild_with_repair: pass ks_erms from caller)
         auto& db = get_db().local();
-        auto myip = tmptr->get_topology().my_address();
         auto myid = tmptr->get_my_id();
         size_t nr_ranges_total = 0;
         for (const auto& [keyspace_name, erm] : ks_erms) {
@@ -2012,15 +2015,17 @@ future<> repair_service::do_rebuild_replace_with_repair(std::unordered_map<sstri
                 auto& r = *it;
                 seastar::thread::maybe_yield();
                 auto end_token = r.end() ? r.end()->value() : dht::maximum_token();
-                auto neighbors = boost::copy_range<std::vector<gms::inet_address>>(strat.calculate_natural_ips(end_token, *tmptr).get() |
-                    boost::adaptors::filtered([myip, &source_dc, &topology, &ignore_nodes] (const gms::inet_address& node) {
-                        if (node == myip) {
+                auto neighbors = boost::copy_range<std::vector<gms::inet_address>>(strat.calculate_natural_endpoints(end_token, *tmptr).get() |
+                    boost::adaptors::filtered([&source_dc, &topology, &ignore_nodes] (const auto& node) {
+                        if (topology.is_me(node)) {
                             return false;
                         }
                         if (ignore_nodes.contains(node)) {
                             return false;
                         }
                         return !source_dc || topology.get_datacenter(node) == *source_dc;
+                    }) | boost::adaptors::transformed([&topology] (const auto& node) {
+                        return topology.get_node(node).endpoint();
                     })
                 );
                 rlogger.debug("{}: keyspace={}, range={}, neighbors={}", op, keyspace_name, r, neighbors);
@@ -2077,10 +2082,14 @@ future<> repair_service::rebuild_with_repair(std::unordered_map<sstring, locator
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 future<> repair_service::replace_with_repair(locator::token_metadata_ptr tmptr, std::unordered_set<dht::token> replacing_tokens, std::unordered_set<gms::inet_address> ignore_nodes) {
     assert(this_shard_id() == 0);
 =======
 future<> repair_service::replace_with_repair(std::unordered_map<sstring, locator::vnode_effective_replication_map_ptr> ks_erms, locator::token_metadata_ptr tmptr, std::unordered_set<dht::token> replacing_tokens, std::unordered_set<gms::inet_address> ignore_nodes) {
+=======
+future<> repair_service::replace_with_repair(std::unordered_map<sstring, locator::vnode_effective_replication_map_ptr> ks_erms, locator::token_metadata_ptr tmptr, std::unordered_set<dht::token> replacing_tokens, std::unordered_set<locator::host_id> ignore_nodes) {
+>>>>>>> 9729dd21c3 (repair: replace_with_repair: pass ignore_nodes as a set of host_id:s)
     SCYLLA_ASSERT(this_shard_id() == 0);
 >>>>>>> b5d0ab092c (repair: replace_rebuild_with_repair: pass ks_erms from caller)
     auto cloned_tm = co_await tmptr->clone_async();
